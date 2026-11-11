@@ -92,7 +92,7 @@ public class ProdutoRepositoryJDBC implements ProdutoRepository {
 
         List<Produto> produtos = new ArrayList<>();
 
-        String sql = "SELECT id, nome, preco FROM produtos ORDER BY id";
+        String sql = "SELECT id, nome, preco, quantidade_estoque FROM produtos ORDER BY id";
 
         try (
                 Connection conexao = Database.conectar();
@@ -118,7 +118,7 @@ public class ProdutoRepositoryJDBC implements ProdutoRepository {
     public Optional<Produto> buscarPorId(Long id) {
 
         String sql = """
-                SELECT id, nome, preco
+                SELECT id, nome, preco, quantidade_estoque
                 FROM produtos
                 WHERE id = ?
                 """;
@@ -174,7 +174,104 @@ public class ProdutoRepositoryJDBC implements ProdutoRepository {
         return new Produto(
                 resultado.getLong("id"),
                 resultado.getString("nome"),
-                resultado.getDouble("preco")
+                resultado.getDouble("preco"),
+                resultado.getInt("quantidade_estoque")
         );
+    }
+
+    @Override
+    public void adicionarEstoque(Long id, int quantidade) {
+
+        String sql = """
+                UPDATE produtos
+                SET quantidade_estoque = quantidade_estoque + ?
+                WHERE id = ?
+                """;
+
+        try (
+                Connection conexao = Database.conectar();
+                PreparedStatement comando = conexao.prepareStatement(sql)
+        ) {
+
+            comando.setInt(1, quantidade);
+            comando.setLong(2, id);
+
+            int linhasAtualizadas = comando.executeUpdate();
+            if (linhasAtualizadas == 0) {
+                throw new SQLException("Produto não encontrado: " + id);
+            }
+
+        } catch (SQLException erro) {
+            throw new RuntimeException(
+                    "Erro ao adicionar estoque",
+                    erro
+            );
+        }
+    }
+
+    @Override
+    public void removerEstoque(Long id, int quantidade) {
+
+        String sql = """
+                UPDATE produtos
+                SET quantidade_estoque = quantidade_estoque - ?
+                WHERE id = ? AND quantidade_estoque >= ?
+                """;
+
+        try (
+                Connection conexao = Database.conectar();
+                PreparedStatement comando = conexao.prepareStatement(sql)
+        ) {
+
+            comando.setInt(1, quantidade);
+            comando.setLong(2, id);
+            comando.setInt(3, quantidade);
+
+            int linhasAtualizadas = comando.executeUpdate();
+            if (linhasAtualizadas == 0) {
+                throw new SQLException("Produto não encontrado ou estoque insuficiente: " + id);
+            }
+
+        } catch (SQLException erro) {
+            throw new RuntimeException(
+                    "Erro ao remover estoque",
+                    erro
+            );
+        }
+    }
+
+    @Override
+    public List<Produto> listarProdutosComEstoqueBaixo(int limite) {
+
+        List<Produto> produtos = new ArrayList<>();
+
+        String sql = """
+                SELECT id, nome, preco, quantidade_estoque
+                FROM produtos
+                WHERE quantidade_estoque <= ?
+                ORDER BY quantidade_estoque ASC
+                """;
+
+        try (
+                Connection conexao = Database.conectar();
+                PreparedStatement comando = conexao.prepareStatement(sql)
+        ) {
+
+            comando.setInt(1, limite);
+
+            try (ResultSet resultado = comando.executeQuery()) {
+                while (resultado.next()) {
+                    produtos.add(converterProduto(resultado));
+                }
+            }
+
+        } catch (SQLException erro) {
+            throw new RuntimeException(
+                    "Erro ao listar produtos com estoque baixo",
+                    erro
+            );
+        }
+
+        return produtos;
     }
 }

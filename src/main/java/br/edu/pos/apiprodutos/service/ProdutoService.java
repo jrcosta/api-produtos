@@ -16,10 +16,15 @@ public class ProdutoService {
     }
 
     public Produto cadastrar(String nome, double preco) {
+        return cadastrar(nome, preco, 0);
+    }
+
+    public Produto cadastrar(String nome, double preco, int quantidadeEstoque) {
 
         validarProduto(nome, preco);
+        validarQuantidade(quantidadeEstoque);
 
-        Produto produto = new Produto(null, nome, preco);
+        Produto produto = new Produto(null, nome, preco, quantidadeEstoque);
 
         repository.salvar(produto);
 
@@ -61,6 +66,36 @@ public class ProdutoService {
         repository.excluir(id);
     }
 
+    public Produto adicionarEstoque(Long id, int quantidade) {
+
+        if (quantidade <= 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade deve ser maior que zero."
+            );
+        }
+
+        repository.adicionarEstoque(id, quantidade);
+
+        return buscarPorId(id);
+    }
+
+    public Produto removerEstoque(Long id, int quantidade) {
+
+        if (quantidade <= 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade deve ser maior que zero."
+            );
+        }
+
+        repository.removerEstoque(id, quantidade);
+
+        return buscarPorId(id);
+    }
+
+    public List<Produto> listarEstoqueBaixo(int limite) {
+        return repository.listarProdutosComEstoqueBaixo(limite);
+    }
+
     private void validarProduto(String nome, double preco) {
 
         if (nome == null || nome.isBlank()) {
@@ -72,6 +107,14 @@ public class ProdutoService {
         if (!Double.isFinite(preco) || preco <= 0) {
             throw new IllegalArgumentException(
                     "O preço deve ser maior que zero."
+            );
+        }
+    }
+
+    private void validarQuantidade(int quantidade) {
+        if (quantidade < 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade do estoque não pode ser negativa."
             );
         }
     }
